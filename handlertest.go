@@ -105,11 +105,29 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func postHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
+		cookie, err := r.Cookie("session_id")
+		if errorCheckHandlers(w, "Not logged in", err, http.StatusUnauthorized) {
+			return
+		}
+		user_id, ok := sessions[cookie.Value]
+		if !ok {
+			http.Error(w, "Invalid session", http.StatusUnauthorized)
+			return
+		}
+
 		title := r.FormValue("title")
 		content := r.FormValue("content")
 		category := r.FormValue("category")
 
-		_, err := myDb.Exec("INSERT INTO Posts ")
+		_, err = myDb.Exec("INSERT INTO posts (user_id, title, content, category) VALUES (?, ?, ?, ?)", user_id, title, content, category)
+		if errorCheckHandlers(w, "Failed to create post", err, http.StatusInternalServerError) {
+			return
+		}
+		fmt.Fprintf(w, "Post created successfully")
+		log.Println("Post created successfully")
+		http.Redirect(w, r, "/posts", http.StatusSeeOther)
+	} else {
+		http.ServeFile(w, r, "./html/post.html")
 	}
 
 }
